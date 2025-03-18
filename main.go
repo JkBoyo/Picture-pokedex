@@ -1,25 +1,25 @@
 package main
 
 import (
-	"bufio"
 	"fmt"
 	"os"
-	"strings"
 )
 
 func main() {
-	scanner := bufio.NewScanner(os.Stdin)
-	for {
-		fmt.Print("Pokedex > ")
-		scanner.Scan()
-		userInput := scanner.Text()
-		cleanedInput := cleanInput(userInput)
-		fmt.Printf("Your command was: %s\n", cleanedInput[0])
-	}
+	startRepl()
 }
 
-func cleanInput(text string) []string {
-	loweredText := strings.ToLower(text)
-	words := strings.Fields(loweredText)
-	return words
+func commandExit(c *config) error {
+	fmt.Println("Closing the Pokedex... Goodbye!")
+	os.Exit(0)
+	return nil
+}
+
+func commandHelp(c *config) error {
+	fmt.Print("Welcome to the Pokedex!\nUsage:\n\n")
+	for cmd, reg := range getRegister() {
+		commandHelpText := cmd + ": " + reg.description + "\n"
+		fmt.Printf("%v", commandHelpText)
+	}
+	return nil
 }
