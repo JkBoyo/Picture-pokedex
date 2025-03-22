@@ -3,10 +3,17 @@ package main
 import (
 	"fmt"
 	"os"
+	"time"
+
+	"github.com/jkboyo/pokedex/internal/pokeapi"
 )
 
 func main() {
-	startRepl()
+	client := pokeapi.NewClient(5 * time.Second)
+	cfg := &config{
+		pokeapiClient: client,
+	}
+	startRepl(cfg)
 }
 
 func commandExit(c *config) error {
