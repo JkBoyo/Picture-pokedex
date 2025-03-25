@@ -27,9 +27,10 @@ func startRepl(c *config) {
 		}
 
 		command := words[0]
+		args := words[1:]
 
 		if cmd, ok := getRegister()[command]; ok {
-			err := cmd.callback(c)
+			err := cmd.callback(c, args)
 			if err != nil {
 				fmt.Println(err)
 			}
@@ -50,7 +51,7 @@ func cleanInput(text string) []string {
 type cliCommand struct {
 	name        string
 	description string
-	callback    func(*config) error
+	callback    func(*config, []string) error
 }
 
 func getRegister() map[string]cliCommand {
@@ -74,6 +75,11 @@ func getRegister() map[string]cliCommand {
 			name:        "mapb",
 			description: "Display previous list of 20 locations at a time",
 			callback:    commandMapb,
+		},
+		"explore": {
+			name:        "explore",
+			description: "list pokemon found in areas passed in with spaces",
+			callback:    commandExplore,
 		},
 	}
 }
