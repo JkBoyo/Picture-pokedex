@@ -44,5 +44,4 @@ func (c *Client) LocationDetails(areaName *string) (RespDetailLocations, error) 
 	}
 
 	return locationDetailsResp, nil
-
 }

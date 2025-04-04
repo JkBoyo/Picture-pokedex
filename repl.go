@@ -81,5 +81,10 @@ func getRegister() map[string]cliCommand {
 			description: "list pokemon found in areas passed in with spaces",
 			callback:    commandExplore,
 		},
+		"catch": {
+			name:        "catch",
+			description: "attempt to catch the pokemon passed as your argument",
+			callback:    commandCatch,
+		},
 	}
 }
