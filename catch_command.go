@@ -14,7 +14,7 @@ func commandCatch(c *config, args []string) error {
 		return nil
 	}
 
-	fmt.Printf("Throwing a pokeball at %s...\n", *pokemonName)
+	fmt.Printf("Throwing a Pokeball at %s...\n", *pokemonName)
 
 	pokemon, err := c.pokeapiClient.PokemonDetails(pokemonName)
 	if err != nil {
