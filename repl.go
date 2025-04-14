@@ -87,5 +87,15 @@ func getRegister() map[string]cliCommand {
 			description: "attempt to catch the pokemon passed as your argument",
 			callback:    commandCatch,
 		},
+		"inspect": {
+			name:        "inspect",
+			description: "list out details of previously caught pokemon",
+			callback:    inspectCommand,
+		},
+		"pokedex": {
+			name:        "pokedex",
+			description: "show all caught pokemon in a list",
+			callback:    pokedexCommand,
+		},
 	}
 }
