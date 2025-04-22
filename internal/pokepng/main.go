@@ -2,9 +2,16 @@ package pokepng
 
 import (
 	"bytes"
+	"compress/zlib"
 	"encoding/binary"
 	"errors"
+	"fmt"
 	"hash/crc32"
+	"io"
+)
+
+const (
+	color_code_temp = "\033[38;2;%v;%v;%vm"
 )
 
 func ConvertPNG(d []byte) ([]string, error) {
@@ -21,12 +28,24 @@ func ConvertPNG(d []byte) ([]string, error) {
 
 	var image image
 
-	for i := 0; i < len(pngChunks); i++ {
+	for i := range pngChunks {
 		processChunk(pngChunks[i], &image)
 	}
 
-	return []string{}, nil
+	fmt.Println(image)
 
+	asciiString := ""
+
+	for _, scnLn := range image.pixelMap {
+		for _, pix := range scnLn.ln {
+			color := image.palatte[pix]
+			asciiString += fmt.Sprintf(color_code_temp+"$", color.red, color.green, color.blue)
+		}
+		asciiString += "\n"
+	}
+	asciiString += "\033[39m"
+	fmt.Print(asciiString)
+	return []string{}, nil
 }
 
 func parsePng(data []byte) ([]chunk, error) {
@@ -64,30 +83,75 @@ func parsePng(data []byte) ([]chunk, error) {
 	return cSlice, nil
 }
 
-func processChunk(c chunk, im *image) {
+func processChunk(c chunk, im *image) error {
 	switch string(c.cHeader) {
 	case "IHDR":
+		fmt.Println(c.cData)
 		im.height = byteToInt(c.cData[:4])
 		im.width = byteToInt(c.cData[4:8])
-		im.bitDepth = byteToInt(c.cData[8:9])
+		im.bitDepth = int(c.cData[8])
+		fmt.Println(im)
+
+		return nil
 
 	case "PLTE":
 		pal := []color{}
 		bD := im.bitDepth
-		for i := 0; i < len(c.cData); i += bD * 3 {
+
+		fmt.Printf("Bit Depth: %d\n", bD)
+		fmt.Println(c.cData)
+
+		for i := 0; i < len(c.cData); i += 3 {
 			col := color{
-				red:   byteToInt(c.cData[i : i+bD]),
-				green: byteToInt(c.cData[i+bD : i+(bD*2)]),
-				blue:  byteToInt(c.cData[i+(bD*2) : i+(bD*3)]),
+				red:   int(c.cData[i]),
+				green: int(c.cData[i+1]),
+				blue:  int(c.cData[i+2]),
 			}
+			fmt.Println(col)
 			pal = append(pal, col)
 		}
 
 		im.palatte = pal
 
-	case "IDAT":
+		return nil
 
+	case "IDAT":
+		compData := c.cData
+
+		r := bytes.NewReader(compData)
+
+		deCompReader, err := zlib.NewReader(r)
+		if err != nil {
+			return err
+		}
+
+		defer deCompReader.Close()
+
+		deCompData, err := io.ReadAll(deCompReader)
+		if err != nil {
+			return err
+		}
+
+		pixMap := []scnLn{}
+
+		for i := 0; i < len(deCompData); i += (im.width + 1) / 2 {
+			scnLn := scnLn{}
+
+			scnLn.filterType = int(deCompData[i])
+			i += 1
+			dataSl := deCompData[i : i+im.width]
+
+			scnLn.ln, err = parseScanLine(dataSl, im.bitDepth)
+			if err != nil {
+				return err
+			}
+
+			pixMap = append(pixMap, scnLn)
+		}
+		im.pixelMap = pixMap
+		return nil
 	}
+	return nil
 }
 
 type chunk struct {
@@ -100,7 +164,7 @@ type image struct {
 	width    int
 	bitDepth int
 	palatte  []color
-	pixelMap [][]int
+	pixelMap []scnLn
 }
 
 type color struct {
@@ -109,6 +173,24 @@ type color struct {
 	blue  int
 }
 
+type scnLn struct {
+	filterType int
+	ln         []byte
+}
+
 func byteToInt(b []byte) int {
 	return int(binary.BigEndian.Uint32(b))
+}
+
+func parseScanLine(bSl []byte, bD int) ([]byte, error) {
+	//This function uses the concepts of bitshifting and masking to return
+	//the parsed pixels.
+	parsedLn := make([]byte, len(bSl)*2)
+	for i, b := range bSl {
+		parsedLn[i*2] = (b >> 4) & 0x0f
+		//This line returns the first pixel from the byte.
+		parsedLn[i*2+1] = b & 0x0f
+		//This line returns the second bixel from the byte
+	}
+	return parsedLn, nil
 }
