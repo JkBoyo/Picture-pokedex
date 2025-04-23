@@ -134,12 +134,14 @@ func processChunk(c chunk, im *image) error {
 
 		pixMap := []scnLn{}
 
-		for i := 0; i < len(deCompData); i += (im.width + 1) / 2 {
+		pixelsPerByte := 8 / im.bitDepth
+
+		for i := 0; i < len(deCompData); i += (im.width) / pixelsPerByte {
 			scnLn := scnLn{}
 
 			scnLn.filterType = int(deCompData[i])
 			i += 1
-			dataSl := deCompData[i : i+im.width]
+			dataSl := deCompData[i : i+(im.width/pixelsPerByte)]
 
 			scnLn.ln, err = parseScanLine(dataSl, im.bitDepth)
 			if err != nil {
@@ -185,12 +187,20 @@ func byteToInt(b []byte) int {
 func parseScanLine(bSl []byte, bD int) ([]byte, error) {
 	//This function uses the concepts of bitshifting and masking to return
 	//the parsed pixels.
-	parsedLn := make([]byte, len(bSl)*2)
-	for i, b := range bSl {
-		parsedLn[i*2] = (b >> 4) & 0x0f
-		//This line returns the first pixel from the byte.
-		parsedLn[i*2+1] = b & 0x0f
-		//This line returns the second bixel from the byte
+	switch bD {
+	case 8:
+		return bSl, nil
+	case 4:
+		parsedLn := make([]byte, len(bSl)*2)
+		for i, b := range bSl {
+			parsedLn[i*2] = (b >> 4) & 0x0f
+			//This line returns the first pixel from the byte.
+			parsedLn[i*2+1] = b & 0x0f
+			//This line returns the second bixel from the byte
+		}
+		return parsedLn, nil
+	default:
+		return []byte{}, errors.New("Unsupported bit depth")
 	}
-	return parsedLn, nil
+
 }
