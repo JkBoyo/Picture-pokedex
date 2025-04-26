@@ -27,6 +27,7 @@ func inspectCommand(c *config, args []string) error {
 				pokemonType.Type.Name,
 			)
 		}
+		fmt.Println(pokemonDat.Sprites.FrontDefault)
 		return nil
 	}
 	fmt.Printf("%s has yet to be caught.", *pokemon)

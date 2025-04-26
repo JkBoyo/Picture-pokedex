@@ -3,6 +3,8 @@ package main
 import (
 	"fmt"
 	"math/rand"
+
+	"github.com/jkboyo/pokedex/internal/pokepng"
 )
 
 func commandCatch(c *config, args []string) error {
@@ -31,6 +33,19 @@ func commandCatch(c *config, args []string) error {
 	result := (float64(numer) / float64(denom))
 
 	if result > 0.5 {
+		spriteUrl := pokemon.Sprites.FrontDefault
+		pokePngDat, err := c.pokeapiClient.PokemonPicture(spriteUrl)
+		if err != nil {
+			return err
+		}
+
+		pokeAscii, err := pokepng.ConvertPNG(pokePngDat)
+		if err != nil {
+			return err
+		}
+
+		pokemon.Sprites.FrontDefault = pokeAscii
+
 		c.pokedex[*pokemonName] = pokemon
 		fmt.Printf("%s was caught!\n", *pokemonName)
 		return nil

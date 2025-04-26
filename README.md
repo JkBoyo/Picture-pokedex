@@ -1,9 +1,9 @@
 # Welcome to the Picture-Pokedex
 This is my implementation of the boot dot dev pokedex project. Currently it is as was designed in the aforementioned guided project but I had an idea.
 
-I wanted to implement transforming the images that are sent down from pokeapi from their original PNG state to reduced pixel art ascii art and learn how these technologies work under the hood.
+I wanted to implement transforming the images that are sent down from pokeapi from their original PNG state to ascii art and learn how these technologies work under the hood.
 
-For now though it just works as the base project intended.
+It took awhile but I read the spec knocked out a very ***Incomplete Parser*** and now I can parse the PNG data for the pokemon png's that are provided : - ).
 
 ## Building the Project
 

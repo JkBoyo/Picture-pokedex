@@ -14,16 +14,16 @@ const (
 	color_code_temp = "\033[38;2;%v;%v;%vm"
 )
 
-func ConvertPNG(d []byte) ([]string, error) {
+func ConvertPNG(d []byte) (string, error) {
 	dataHeader := d[:8]
 	pngHead := []byte{0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A}
 	if !bytes.Equal(dataHeader, pngHead) {
-		return []string{}, errors.New("File header is corrupted")
+		return "", errors.New("File header is corrupted")
 	}
 
 	pngChunks, err := parsePng(d)
 	if err != nil {
-		return []string{}, err
+		return "", err
 	}
 
 	var image image
@@ -32,11 +32,13 @@ func ConvertPNG(d []byte) ([]string, error) {
 		processChunk(pngChunks[i], &image)
 	}
 
-	fmt.Println(image)
-
 	asciiString := ""
 
 	for _, scnLn := range image.pixelMap {
+		if backgroundOnly(scnLn) {
+			continue
+		}
+
 		for _, pix := range scnLn.ln {
 			color := image.palatte[pix]
 			asciiString += fmt.Sprintf(color_code_temp+"$", color.red, color.green, color.blue)
@@ -44,8 +46,18 @@ func ConvertPNG(d []byte) ([]string, error) {
 		asciiString += "\n"
 	}
 	asciiString += "\033[39m"
-	fmt.Print(asciiString)
-	return []string{}, nil
+	return asciiString, nil
+}
+
+func backgroundOnly(sL scnLn) bool {
+	for idx := range sL.ln {
+		if idx > 1 {
+			if sL.ln[idx] != sL.ln[idx-1] {
+				return false
+			}
+		}
+	}
+	return true
 }
 
 func parsePng(data []byte) ([]chunk, error) {
@@ -86,20 +98,14 @@ func parsePng(data []byte) ([]chunk, error) {
 func processChunk(c chunk, im *image) error {
 	switch string(c.cHeader) {
 	case "IHDR":
-		fmt.Println(c.cData)
 		im.height = byteToInt(c.cData[:4])
 		im.width = byteToInt(c.cData[4:8])
 		im.bitDepth = int(c.cData[8])
-		fmt.Println(im)
 
 		return nil
 
 	case "PLTE":
 		pal := []color{}
-		bD := im.bitDepth
-
-		fmt.Printf("Bit Depth: %d\n", bD)
-		fmt.Println(c.cData)
 
 		for i := 0; i < len(c.cData); i += 3 {
 			col := color{
@@ -107,7 +113,6 @@ func processChunk(c chunk, im *image) error {
 				green: int(c.cData[i+1]),
 				blue:  int(c.cData[i+2]),
 			}
-			fmt.Println(col)
 			pal = append(pal, col)
 		}
 
@@ -162,11 +167,11 @@ type chunk struct {
 }
 
 type image struct {
+	palatte  []color
+	pixelMap []scnLn
 	height   int
 	width    int
 	bitDepth int
-	palatte  []color
-	pixelMap []scnLn
 }
 
 type color struct {
@@ -176,8 +181,8 @@ type color struct {
 }
 
 type scnLn struct {
-	filterType int
 	ln         []byte
+	filterType int
 }
 
 func byteToInt(b []byte) int {
