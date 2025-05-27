@@ -26,7 +26,7 @@ func ConvertPNG(d []byte) (string, error) {
 		return "", err
 	}
 
-	var image image
+	image := image{}
 
 	for i := range pngChunks {
 		processChunk(pngChunks[i], &image)
@@ -35,13 +35,28 @@ func ConvertPNG(d []byte) (string, error) {
 	asciiString := ""
 
 	for _, scnLn := range image.pixelMap {
+		fmt.Println(scnLn)
 		if backgroundOnly(scnLn) {
 			continue
 		}
 
-		for _, pix := range scnLn.ln {
-			color := image.palatte[pix]
-			asciiString += fmt.Sprintf(color_code_temp+"$", color.red, color.green, color.blue)
+		switch image.imType {
+		case indexedColor:
+			for _, pix := range scnLn.ln {
+				if pix == 0 {
+					asciiString += " "
+					continue
+				}
+				color := image.palatte[pix]
+
+				asciiString += fmt.Sprintf(color_code_temp+"$", color.red, color.green, color.blue)
+			}
+		case truecolorWithAlpha:
+			bytePerPix := image.bitDepth / 8
+			for i := 0; i < len(scnLn.ln); i += int(bytePerPix) * 4 {
+				color := parseTruecolorPix(scnLn.ln[i:i+int(bytePerPix)*4], int(image.bitDepth))
+				asciiString += fmt.Sprintf(color_code_temp+"$", color.red, color.green, color.blue)
+			}
 		}
 		asciiString += "\n"
 	}
@@ -100,7 +115,8 @@ func processChunk(c chunk, im *image) error {
 	case "IHDR":
 		im.height = byteToInt(c.cData[:4])
 		im.width = byteToInt(c.cData[4:8])
-		im.bitDepth = int(c.cData[8])
+		im.bitDepth = float64(c.cData[8])
+		im.imType = imType(c.cData[9])
 
 		return nil
 
@@ -139,21 +155,29 @@ func processChunk(c chunk, im *image) error {
 
 		pixMap := []scnLn{}
 
-		pixelsPerByte := 8 / im.bitDepth
-
-		for i := 0; i < len(deCompData); i += (im.width) / pixelsPerByte {
+		bytesPerPix := 0.0
+		switch im.imType {
+		case indexedColor:
+			bytesPerPix = im.bitDepth / 8.0
+		case truecolorWithAlpha:
+			bytesPerPix = 4.0 * (im.bitDepth / 8.0)
+		}
+		for i := 0; i < len(deCompData); i += int(float64(im.width) * bytesPerPix) {
 			scnLn := scnLn{}
 
 			scnLn.filterType = int(deCompData[i])
 			i += 1
-			dataSl := deCompData[i : i+(im.width/pixelsPerByte)]
+			dataSl := deCompData[i : i+int(float64(im.width)*bytesPerPix)]
 
-			scnLn.ln, err = parseScanLine(dataSl, im.bitDepth)
+			scnLn.ln, err = parseScanLine(dataSl, int(im.bitDepth))
 			if err != nil {
 				return err
 			}
-
-			pixMap = append(pixMap, scnLn)
+			filtScnLn, err := filterScanLine(scnLn)
+			if err != nil {
+				return err
+			}
+			pixMap = append(pixMap, filtScnLn)
 		}
 		im.pixelMap = pixMap
 		return nil
@@ -166,18 +190,30 @@ type chunk struct {
 	cData   []byte
 }
 
+type imType int
+
+const (
+	greyscale          imType = 0
+	truecolor          imType = 2
+	indexedColor       imType = 3
+	greyscaleWithAlpha imType = 4
+	truecolorWithAlpha imType = 6
+)
+
 type image struct {
-	palatte  []color
 	pixelMap []scnLn
+	palatte  []color
+	imType   imType
 	height   int
 	width    int
-	bitDepth int
+	bitDepth float64
 }
 
 type color struct {
 	red   int
 	green int
 	blue  int
+	alpha int
 }
 
 type scnLn struct {
@@ -187,6 +223,23 @@ type scnLn struct {
 
 func byteToInt(b []byte) int {
 	return int(binary.BigEndian.Uint32(b))
+}
+
+func parseTruecolorPix(b []byte, bD int) color {
+	color := color{}
+	switch bD {
+	case 16:
+		color.alpha = byteToInt(b[0:2])
+		color.red = byteToInt(b[2:4])
+		color.green = byteToInt(b[4:6])
+		color.blue = byteToInt(b[6:8])
+	case 8:
+		color.red = int(b[0])
+		color.green = int(b[1])
+		color.blue = int(b[2])
+		color.alpha = int(b[3])
+	}
+	return color
 }
 
 func parseScanLine(bSl []byte, bD int) ([]byte, error) {
@@ -208,4 +261,22 @@ func parseScanLine(bSl []byte, bD int) ([]byte, error) {
 		return []byte{}, errors.New("Unsupported bit depth")
 	}
 
+}
+
+func filterScanLine(sL scnLn) (scnLn, error) {
+	filtScnLn := scnLn{}
+	switch sL.filterType {
+	case 0:
+		return sL, nil
+	case 1:
+		prevVal := byte(0)
+		for _, val := range sL.ln {
+			cVal := val + prevVal
+			filtScnLn.ln = append(filtScnLn.ln, cVal)
+			prevVal = cVal
+		}
+		return filtScnLn, nil
+	default:
+		return filtScnLn, errors.New("Filtermethod not implemented")
+	}
 }
