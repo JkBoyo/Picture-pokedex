@@ -97,5 +97,10 @@ func getRegister() map[string]cliCommand {
 			description: "show all caught pokemon in a list",
 			callback:    pokedexCommand,
 		},
+		"testpng": {
+			name:        "testPng",
+			description: "test parsing local png's",
+			callback:    commandTestPng,
+		},
 	}
 }

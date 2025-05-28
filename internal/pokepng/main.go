@@ -173,6 +173,7 @@ func processChunk(c chunk, im *image) error {
 			if err != nil {
 				return err
 			}
+			fmt.Println(scnLn.filterType)
 			filtScnLn, err := filterScanLine(scnLn)
 			if err != nil {
 				return err
