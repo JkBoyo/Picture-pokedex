@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"hash/crc32"
 	"io"
+	"math"
 )
 
 const (
@@ -34,15 +35,15 @@ func ConvertPNG(d []byte) (string, error) {
 
 	asciiString := ""
 
-	for _, scnLn := range image.pixelMap {
-		fmt.Println(scnLn)
-		if backgroundOnly(scnLn) {
+	for _, ScnLn := range image.pixelMap {
+		fmt.Println(ScnLn)
+		if backgroundOnly(ScnLn) {
 			continue
 		}
 
 		switch image.imType {
 		case indexedColor:
-			for _, pix := range scnLn.ln {
+			for _, pix := range ScnLn.ln {
 				if pix == 0 {
 					asciiString += " "
 					continue
@@ -53,18 +54,19 @@ func ConvertPNG(d []byte) (string, error) {
 			}
 		case truecolorWithAlpha:
 			bytePerPix := image.bitDepth / 8
-			for i := 0; i < len(scnLn.ln); i += int(bytePerPix) * 4 {
-				color := parseTruecolorPix(scnLn.ln[i:i+int(bytePerPix)*4], int(image.bitDepth))
+			for i := 0; i < len(ScnLn.ln); i += int(bytePerPix) * 4 {
+				color := parseTruecolorPix(ScnLn.ln[i:i+int(bytePerPix)*4], int(image.bitDepth))
 				asciiString += fmt.Sprintf(color_code_temp+"$", color.red, color.green, color.blue)
 			}
 		}
 		asciiString += "\n"
 	}
 	asciiString += "\033[39m"
+	fmt.Println(asciiString)
 	return asciiString, nil
 }
 
-func backgroundOnly(sL scnLn) bool {
+func backgroundOnly(sL ScnLn) bool {
 	for idx := range sL.ln {
 		if idx > 1 {
 			if sL.ln[idx] != sL.ln[idx-1] {
@@ -138,23 +140,16 @@ func processChunk(c chunk, im *image) error {
 
 	case "IDAT":
 		compData := c.cData
-
 		r := bytes.NewReader(compData)
-
 		deCompReader, err := zlib.NewReader(r)
 		if err != nil {
 			return err
 		}
-
 		defer deCompReader.Close()
-
 		deCompData, err := io.ReadAll(deCompReader)
 		if err != nil {
 			return err
 		}
-
-		pixMap := []scnLn{}
-
 		bytesPerPix := 0.0
 		switch im.imType {
 		case indexedColor:
@@ -162,26 +157,30 @@ func processChunk(c chunk, im *image) error {
 		case truecolorWithAlpha:
 			bytesPerPix = 4.0 * (im.bitDepth / 8.0)
 		}
-		for i := 0; i < len(deCompData); i += int(float64(im.width) * bytesPerPix) {
-			scnLn := scnLn{}
-
+		scnLns := make([]ScnLn, im.height)
+		scnLnLen := int(float64(im.width) * bytesPerPix)
+		j := 0
+		for i := 0; i < len(scnLns); i += 1 {
+			var prevSL []byte
+			if i == 0 {
+				prevSL = make([]byte, scnLnLen)
+			} else {
+				prevSL = scnLns[i-1].ln
+			}
+			scnLn := ScnLn{}
 			scnLn.filterType = int(deCompData[i])
-			i += 1
-			dataSl := deCompData[i : i+int(float64(im.width)*bytesPerPix)]
-
-			scnLn.ln, err = parseScanLine(dataSl, int(im.bitDepth))
+			dataSl := deCompData[j+1 : j+scnLnLen]
+			scnLn.ln = dataSl
+			filterSL(scnLn, prevSL, int(math.Ceil(bytesPerPix)))
+			scnLn.ln, err = parseScanLine(scnLn.ln, int(im.bitDepth))
 			if err != nil {
 				return err
 			}
-			fmt.Println(scnLn.filterType)
-			filtScnLn, err := filterScanLine(scnLn)
-			if err != nil {
-				return err
-			}
-			pixMap = append(pixMap, filtScnLn)
+			fmt.Println(i)
+			scnLns[i] = scnLn
+			j += scnLnLen
 		}
-		im.pixelMap = pixMap
-		return nil
+		im.pixelMap = scnLns
 	}
 	return nil
 }
@@ -202,7 +201,7 @@ const (
 )
 
 type image struct {
-	pixelMap []scnLn
+	pixelMap []ScnLn
 	palatte  []color
 	imType   imType
 	height   int
@@ -217,7 +216,7 @@ type color struct {
 	alpha int
 }
 
-type scnLn struct {
+type ScnLn struct {
 	ln         []byte
 	filterType int
 }
@@ -230,10 +229,10 @@ func parseTruecolorPix(b []byte, bD int) color {
 	color := color{}
 	switch bD {
 	case 16:
-		color.alpha = byteToInt(b[0:2])
-		color.red = byteToInt(b[2:4])
-		color.green = byteToInt(b[4:6])
-		color.blue = byteToInt(b[6:8])
+		color.red = byteToInt(b[0:2])
+		color.green = byteToInt(b[2:4])
+		color.blue = byteToInt(b[4:6])
+		color.alpha = byteToInt(b[6:8])
 	case 8:
 		color.red = int(b[0])
 		color.green = int(b[1])
@@ -264,20 +263,24 @@ func parseScanLine(bSl []byte, bD int) ([]byte, error) {
 
 }
 
-func filterScanLine(sL scnLn) (scnLn, error) {
-	filtScnLn := scnLn{}
-	switch sL.filterType {
+func filterSL(cSL ScnLn, pL []byte, bytesPerPix int) {
+	prev := make([]byte, bytesPerPix)
+	switch cSL.filterType {
 	case 0:
-		return sL, nil
+		return
 	case 1:
-		prevVal := byte(0)
-		for _, val := range sL.ln {
-			cVal := val + prevVal
-			filtScnLn.ln = append(filtScnLn.ln, cVal)
-			prevVal = cVal
-		}
-		return filtScnLn, nil
-	default:
-		return filtScnLn, errors.New("Filtermethod not implemented")
+
+		sub(pL, cSL.ln, bytesPerPix, prev)
 	}
+}
+
+func sub(pL, cL []byte, bPP int, prev []byte) {
+	if len(cL) < bPP {
+		return
+	}
+	for i, v := range pL[:bPP] {
+		pL[i] = prev[i] + v
+	}
+	sub(pL[bPP:], cL[bPP:], bPP, pL[:bPP])
+	return
 }
