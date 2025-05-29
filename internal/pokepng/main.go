@@ -62,7 +62,6 @@ func ConvertPNG(d []byte) (string, error) {
 		asciiString += "\n"
 	}
 	asciiString += "\033[39m"
-	fmt.Println(asciiString)
 	return asciiString, nil
 }
 
@@ -158,7 +157,7 @@ func processChunk(c chunk, im *image) error {
 			bytesPerPix = 4.0 * (im.bitDepth / 8.0)
 		}
 		scnLns := make([]ScnLn, im.height)
-		scnLnLen := int(float64(im.width) * bytesPerPix)
+		scnLnLen := int(float64(im.width)*bytesPerPix) + 1
 		j := 0
 		for i := 0; i < len(scnLns); i += 1 {
 			var prevSL []byte
@@ -168,10 +167,10 @@ func processChunk(c chunk, im *image) error {
 				prevSL = scnLns[i-1].ln
 			}
 			scnLn := ScnLn{}
-			scnLn.filterType = int(deCompData[i])
-			dataSl := deCompData[j+1 : j+scnLnLen]
-			scnLn.ln = dataSl
+			scnLn.filterType = int(deCompData[j])
+			scnLn.ln = deCompData[j+1 : j+scnLnLen]
 			filterSL(scnLn, prevSL, int(math.Ceil(bytesPerPix)))
+			fmt.Println(int(math.Ceil(bytesPerPix)))
 			scnLn.ln, err = parseScanLine(scnLn.ln, int(im.bitDepth))
 			if err != nil {
 				return err
