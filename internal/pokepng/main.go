@@ -9,6 +9,7 @@ import (
 	"hash/crc32"
 	"io"
 	"math"
+	"strings"
 )
 
 const (
@@ -36,44 +37,37 @@ func ConvertPNG(d []byte) (string, error) {
 	asciiString := ""
 
 	for _, ScnLn := range image.pixelMap {
-		fmt.Println(ScnLn)
-		if backgroundOnly(ScnLn) {
-			continue
-		}
-
+		asciiLine := ""
 		switch image.imType {
 		case indexedColor:
 			for _, pix := range ScnLn.ln {
 				if pix == 0 {
-					asciiString += " "
+					asciiLine += " "
 					continue
 				}
 				color := image.palatte[pix]
 
-				asciiString += fmt.Sprintf(color_code_temp+"$", color.red, color.green, color.blue)
+				asciiLine += fmt.Sprintf(color_code_temp+"$", color.red, color.green, color.blue)
 			}
 		case truecolorWithAlpha:
 			bytePerPix := image.bitDepth / 8
 			for i := 0; i < len(ScnLn.ln); i += int(bytePerPix) * 4 {
 				color := parseTruecolorPix(ScnLn.ln[i:i+int(bytePerPix)*4], int(image.bitDepth))
-				asciiString += fmt.Sprintf(color_code_temp+"$", color.red, color.green, color.blue)
+				if color.alpha == 0 {
+					asciiLine += " "
+					continue
+				}
+				asciiLine += fmt.Sprintf(color_code_temp+"$", color.red, color.green, color.blue)
 			}
 		}
+		if !strings.Contains(asciiLine, "$") {
+			continue
+		}
+		asciiString += asciiLine
 		asciiString += "\n"
 	}
 	asciiString += "\033[39m"
 	return asciiString, nil
-}
-
-func backgroundOnly(sL ScnLn) bool {
-	for idx := range sL.ln {
-		if idx > 1 {
-			if sL.ln[idx] != sL.ln[idx-1] {
-				return false
-			}
-		}
-	}
-	return true
 }
 
 func parsePng(data []byte) ([]chunk, error) {
@@ -170,12 +164,10 @@ func processChunk(c chunk, im *image) error {
 			scnLn.filterType = int(deCompData[j])
 			scnLn.ln = deCompData[j+1 : j+scnLnLen]
 			filterSL(scnLn, prevSL, int(math.Ceil(bytesPerPix)))
-			fmt.Println(int(math.Ceil(bytesPerPix)))
 			scnLn.ln, err = parseScanLine(scnLn.ln, int(im.bitDepth))
 			if err != nil {
 				return err
 			}
-			fmt.Println(i)
 			scnLns[i] = scnLn
 			j += scnLnLen
 		}
