@@ -53,7 +53,7 @@ func ConvertPNG(d []byte) (string, error) {
 			bytePerPix := image.bitDepth / 8
 			for i := 0; i < len(ScnLn.ln); i += int(bytePerPix) * 4 {
 				color := parseTruecolorPix(ScnLn.ln[i:i+int(bytePerPix)*4], int(image.bitDepth))
-				if color.alpha == 0 {
+				if color.alpha < 255 {
 					asciiLine += " "
 					continue
 				}
@@ -260,18 +260,30 @@ func filterSL(cSL ScnLn, pL []byte, bytesPerPix int) {
 	case 0:
 		return
 	case 1:
-
-		sub(pL, cSL.ln, bytesPerPix, prev)
+		sub(cSL.ln, bytesPerPix, prev)
+	case 2:
+		up(pL, cSL.ln, bytesPerPix)
 	}
 }
 
-func sub(pL, cL []byte, bPP int, prev []byte) {
+func sub(cL []byte, bPP int, prev []byte) {
+	if len(cL) < bPP {
+		return
+	}
+	for i, v := range cL[:bPP] {
+		cL[i] = v + prev[i]
+	}
+	sub(cL[bPP:], bPP, cL[:bPP])
+	return
+}
+
+func up(pL, cL []byte, bPP int) {
 	if len(cL) < bPP {
 		return
 	}
 	for i, v := range pL[:bPP] {
-		pL[i] = prev[i] + v
+		cL[i] = v + pL[i]
 	}
-	sub(pL[bPP:], cL[bPP:], bPP, pL[:bPP])
+	up(pL[bPP:], cL[bPP:], bPP)
 	return
 }

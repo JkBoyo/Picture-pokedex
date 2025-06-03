@@ -5,6 +5,26 @@ I wanted to implement transforming the images that are sent down from pokeapi fr
 
 It took awhile but I read the spec knocked out a very ***Incomplete Parser*** and now I can parse the PNG data for the pokemon png's that are provided : - ).
 
+This currently includes decoding images that use indexed and true color with alpha images at this point. It also only currently includes defiltering images that have been either no scan line filtering or sub scanline filtering.
+
+
+### TODO
+1. Handling pokemon forms/species
+
+2. Defiltering Scanlines
+- [x] None
+- [x] Sub
+- [x] Up (not tested)
+- [ ] Average
+- [ ] Paeth
+
+3. Color Types
+- [x] Indexed colors
+- [x] Truecolor w/ alpha
+- [ ] Truecolor
+- [ ] grayscale
+- [ ] grayscale w/ alpha
+
 ## Building the Project
 
 Currently there are no plans to provide builds for this as it is really just something intended for learning but thanks to go it's really simple to build.
