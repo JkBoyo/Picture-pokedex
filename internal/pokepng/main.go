@@ -31,7 +31,10 @@ func ConvertPNG(d []byte) (string, error) {
 	image := image{}
 
 	for i := range pngChunks {
-		processChunk(pngChunks[i], &image)
+		err = processChunk(pngChunks[i], &image)
+		if err != nil {
+			fmt.Println(err)
+		}
 	}
 
 	asciiString := ""
@@ -117,7 +120,6 @@ func processChunk(c chunk, im *image) error {
 
 	case "PLTE":
 		pal := []color{}
-
 		for i := 0; i < len(c.cData); i += 3 {
 			col := color{
 				red:   int(c.cData[i]),
@@ -126,14 +128,14 @@ func processChunk(c chunk, im *image) error {
 			}
 			pal = append(pal, col)
 		}
-
 		im.palatte = pal
-
 		return nil
 
 	case "IDAT":
-		compData := c.cData
-		r := bytes.NewReader(compData)
+		im.imDat = append(im.imDat, c.cData...)
+
+	case "IEND":
+		r := bytes.NewReader(im.imDat)
 		deCompReader, err := zlib.NewReader(r)
 		if err != nil {
 			return err
@@ -171,7 +173,10 @@ func processChunk(c chunk, im *image) error {
 			scnLns[i] = scnLn
 			j += scnLnLen
 		}
-		im.pixelMap = scnLns
+		im.pixelMap = append(im.pixelMap, scnLns...)
+
+	default:
+		fmt.Println("Not implemented")
 	}
 	return nil
 }
@@ -192,6 +197,7 @@ const (
 )
 
 type image struct {
+	imDat    []byte
 	pixelMap []ScnLn
 	palatte  []color
 	imType   imType
@@ -256,13 +262,18 @@ func parseScanLine(bSl []byte, bD int) ([]byte, error) {
 
 func filterSL(cSL ScnLn, pL []byte, bytesPerPix int) {
 	prev := make([]byte, bytesPerPix)
+
 	switch cSL.filterType {
 	case 0:
 		return
 	case 1:
 		sub(cSL.ln, bytesPerPix, prev)
 	case 2:
-		up(pL, cSL.ln, bytesPerPix)
+		up(cSL.ln, pL, bytesPerPix)
+	case 3:
+		av(cSL.ln, pL, bytesPerPix, prev)
+	case 4:
+		paeth(cSL.ln, pL, bytesPerPix, prev, prev)
 	}
 }
 
@@ -277,13 +288,52 @@ func sub(cL []byte, bPP int, prev []byte) {
 	return
 }
 
-func up(pL, cL []byte, bPP int) {
+func up(cL, pL []byte, bPP int) {
 	if len(cL) < bPP {
 		return
 	}
-	for i, v := range pL[:bPP] {
+	for i, v := range cL[:bPP] {
 		cL[i] = v + pL[i]
 	}
-	up(pL[bPP:], cL[bPP:], bPP)
+	up(cL[bPP:], pL[bPP:], bPP)
+	return
+}
+
+func av(cL, pL []byte, bPP int, prev []byte) {
+	if len(cL) < bPP {
+		return
+	}
+	for i, x := range cL[:bPP] {
+		a := float64(prev[i])
+		b := float64(pL[i])
+		cL[i] = x + byte(math.Floor((a+b)/2.0))
+	}
+	av(cL[bPP:], pL[bPP:], bPP, cL[:bPP])
+	return
+}
+
+func paeth(cL, pL []byte, bPP int, prevCl, prevPl []byte) {
+	if len(cL) < bPP {
+		return
+	}
+	for i, x := range cL[:bPP] {
+		a := int(prevCl[i])
+		b := int(pL[i])
+		c := int(prevPl[i])
+		p := a + b - c
+		pa := math.Abs(float64(p - a))
+		pb := math.Abs(float64(p - b))
+		pc := math.Abs(float64(p - c))
+		var Pr byte
+		if pa <= pb && pa <= pc {
+			Pr = byte(a)
+		} else if pb <= pc {
+			Pr = byte(b)
+		} else {
+			Pr = byte(c)
+		}
+		cL[i] = x + Pr
+	}
+	paeth(cL[bPP:], pL[bPP:], bPP, cL[:bPP], pL[:bPP])
 	return
 }

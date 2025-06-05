@@ -9,16 +9,16 @@ This currently includes decoding images that use indexed and true color with alp
 
 
 ### TODO
-1. Handling pokemon forms/species
+1. [ ] Handling pokemon forms/species
 
-2. Defiltering Scanlines
+2. [x] Defiltering Scanlines
 - [x] None
 - [x] Sub
 - [x] Up (not tested)
-- [ ] Average
-- [ ] Paeth
+- [x] Average
+- [x] Paeth
 
-3. Color Types
+3. [ ] Color Types
 - [x] Indexed colors
 - [x] Truecolor w/ alpha
 - [ ] Truecolor
