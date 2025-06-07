@@ -111,8 +111,8 @@ func parsePng(data []byte) ([]chunk, error) {
 func processChunk(c chunk, im *image) error {
 	switch string(c.cHeader) {
 	case "IHDR":
-		im.height = byteToInt(c.cData[:4])
-		im.width = byteToInt(c.cData[4:8])
+		im.width = byteToInt(c.cData[:4])
+		im.height = byteToInt(c.cData[4:8])
 		im.bitDepth = float64(c.cData[8])
 		im.imType = imType(c.cData[9])
 
