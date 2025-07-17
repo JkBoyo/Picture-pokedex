@@ -1,10 +1,11 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 )
 
-var type_colors = map[string]struct {
+var typeColors = map[string]struct {
 	r int
 	g int
 	b int
@@ -30,6 +31,9 @@ var type_colors = map[string]struct {
 }
 
 func inspectCommand(c *config, args []string) error {
+	if len(args) < 1 {
+		return errors.New("No Pokemon provided")
+	}
 	pokemon := &args[0]
 	pokemonDat, exists := c.pokedex[*pokemon]
 	if exists {
@@ -48,7 +52,7 @@ func inspectCommand(c *config, args []string) error {
 		}
 		fmt.Println("Types:")
 		for _, pokemonType := range pokemonDat.Types {
-			color := type_colors[pokemonType.Type.Name]
+			color := typeColors[pokemonType.Type.Name]
 			colorStr := fmt.Sprintf("\033[38;2;%v;%v;%vm",
 				color.r,
 				color.g,
@@ -62,6 +66,6 @@ func inspectCommand(c *config, args []string) error {
 		fmt.Println(pokemonDat.Sprites.FrontDefault)
 		return nil
 	}
-	fmt.Printf("%s has yet to be caught.", *pokemon)
+	fmt.Printf("%s has yet to be caught.\n", *pokemon)
 	return nil
 }
