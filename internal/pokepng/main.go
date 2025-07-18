@@ -42,6 +42,10 @@ func ConvertPNG(d []byte) (string, error) {
 	for _, ScnLn := range image.pixelMap {
 		asciiLine := ""
 		switch image.imType {
+		case greyscale:
+			fmt.Println("Grayscale images not yet supported")
+		case truecolor:
+			fmt.Println("Truecolor images not yet supported")
 		case indexedColor:
 			for _, pix := range ScnLn.ln {
 				if pix == 0 {
@@ -52,6 +56,8 @@ func ConvertPNG(d []byte) (string, error) {
 
 				asciiLine += fmt.Sprintf(color_code_temp+"$", color.red, color.green, color.blue)
 			}
+		case greyscaleWithAlpha:
+			fmt.Println("Grayscale with alpha images not yet supported")
 		case truecolorWithAlpha:
 			bytePerPix := image.bitDepth / 8
 			for i := 0; i < len(ScnLn.ln); i += int(bytePerPix) * 4 {
