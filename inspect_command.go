@@ -37,7 +37,8 @@ func inspectCommand(c *config, args []string) error {
 	pokemon := &args[0]
 	pokemonDat, exists := c.pokedex[*pokemon]
 	if exists {
-		fmt.Printf("Name: %s\nHeight: %d\nWeight: %d\nStats:\n",
+		var pokeInfo string
+		pokeInfo += fmt.Sprintf("Name: %s\nHeight: %d\nWeight: %d\nStats:\n",
 			pokemonDat.Name,
 			pokemonDat.Height,
 			pokemonDat.Weight,
@@ -45,12 +46,12 @@ func inspectCommand(c *config, args []string) error {
 		for _, stat := range pokemonDat.Stats {
 			statName := stat.Stat.Name
 			baseStat := stat.BaseStat
-			fmt.Printf("  -%s: %d\n",
+			pokeInfo += fmt.Sprintf("  -%s: %d\n",
 				statName,
 				baseStat,
 			)
 		}
-		fmt.Println("Types:")
+		pokeInfo += "Types:\n"
 		for _, pokemonType := range pokemonDat.Types {
 			color := typeColors[pokemonType.Type.Name]
 			colorStr := fmt.Sprintf("\033[38;2;%v;%v;%vm",
@@ -58,12 +59,12 @@ func inspectCommand(c *config, args []string) error {
 				color.g,
 				color.b,
 			)
-			fmt.Printf("  - %s%s\033[0m\n",
+			pokeInfo += fmt.Sprintf("  - %s%s\033[0m\n",
 				colorStr,
 				pokemonType.Type.Name,
 			)
 		}
-		fmt.Println(pokemonDat.Sprites.FrontDefault)
+		PrintPokePage(pokeInfo, pokemonDat.Sprites.FrontDefault)
 		return nil
 	}
 	fmt.Printf("%s has yet to be caught.\n", *pokemon)

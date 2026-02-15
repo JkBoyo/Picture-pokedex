@@ -13,7 +13,7 @@ import (
 )
 
 const (
-	color_code_temp = "\033[38;2;%v;%v;%vm"
+	color_code_temp = "\033[38;2;%v;%v;%vm$\033[0m"
 )
 
 func ConvertPNG(d []byte) (string, error) {
@@ -54,7 +54,7 @@ func ConvertPNG(d []byte) (string, error) {
 				}
 				color := image.palatte[pix]
 
-				asciiLine += fmt.Sprintf(color_code_temp+"$", color.red, color.green, color.blue)
+				asciiLine += fmt.Sprintf(color_code_temp, color.red, color.green, color.blue)
 			}
 		case greyscaleWithAlpha:
 			fmt.Println("Grayscale with alpha images not yet supported")
@@ -66,7 +66,7 @@ func ConvertPNG(d []byte) (string, error) {
 					asciiLine += " "
 					continue
 				}
-				asciiLine += fmt.Sprintf(color_code_temp+"$", color.red, color.green, color.blue)
+				asciiLine += fmt.Sprintf(color_code_temp, color.red, color.green, color.blue)
 			}
 		}
 		if !strings.Contains(asciiLine, "$") {
